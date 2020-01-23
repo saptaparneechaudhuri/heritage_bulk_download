@@ -1,0 +1,8 @@
+heritage_bulk_download.downloadcontent:
+  path: '/content/{textid}/download'
+  defaults:
+    _form: '\Drupal\heritage_bulk_download\Form\DownloadContentText'
+    _title: 'Bulk Download Content in pdf'
+  requirements:
+    _permission: 'access content'
+    #_custom_access: '\Drupal\heritage_schema\Controller\HeritageText::showtoc'
