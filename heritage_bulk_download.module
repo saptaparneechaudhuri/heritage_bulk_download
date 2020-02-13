@@ -1,0 +1,151 @@
+<?php
+
+/**
+ * @file
+ * Heritage Text Bulk Downloader.
+ * Module to download heritage texts.
+ */
+
+use Drupal\node\Entity\Node;
+
+/**
+ *
+ */
+function calculate_sublevel($textname, $chapter_tid) {
+
+  $sublevels = db_query("SELECT field_sub_levels_value FROM `taxonomy_term__field_sub_levels` WHERE entity_id = :chapterid AND bundle = :textname", [':chapterid' => $chapter_tid, ':textname' => $textname])->fetchField();
+
+  return $sublevels;
+
+}
+
+/**
+ *
+ */
+function get_chapter_number($textname, $chapter_selected_tid) {
+  $chapter_name = db_query("SELECT name FROM  `taxonomy_term_field_data` WHERE vid = :textname AND tid = :chapter_selected_tid", [':textname' => $textname, ':chapter_selected_tid' => $chapter_selected_tid])->fetchField();
+
+  $chapter = explode(' ', $chapter_name);
+
+  return $chapter[1];
+
+}
+
+/**
+ *
+ */
+function get_contents_two_levels($slokaStart, $slokaEnd, $chapter, $textname, $langcode, $table_name, $field_name) {
+
+  $diff = $slokaEnd - $slokaStart;
+
+  if ($diff > 0) {
+
+    $var = '';
+    for ($i = $slokaStart; $i <= $slokaEnd; $i++) {
+      $positional_index = $chapter . '.' . $i;
+      $entity_id = db_query("SELECT nid FROM `node_field_data` WHERE type = :textname AND langcode = :langcode AND title = :positional_index", [':textname' => $textname, ':langcode' => $langcode, ':positional_index' => $positional_index])->fetchField();
+
+      $node = Node::load($entity_id);
+      // $contents = db_query("SELECT $field_value FROM " . $table_name . " WHERE bundle = :textname AND entity_id = :entity_id AND langcode = :langcode", [':textname' => $textname, ':entity_id' => $entity_id, ':langcode' => $langcode])->fetchField();
+      $contents = $node->{$field_name}->value;
+
+      $var = $var . $contents;
+
+    }
+
+  }
+  else {
+    $sloka = $slokaStart;
+    $positional_index = $chapter . '.' . $sloka;
+    // print_r($positional_index);exit;
+    // Get the entity id of this positional index.
+    $entity_id = db_query("SELECT nid FROM `node_field_data` WHERE type = :textname AND langcode = :langcode AND title = :positional_index", [':textname' => $textname, ':langcode' => $langcode, ':positional_index' => $positional_index])->fetchField();
+    // print_r($entity_id);exit;
+    // Load the node.
+    $node = Node::load($entity_id);
+
+    // Select the source content for this node.
+    // $contents = db_query("SELECT $field_value FROM " . $table_name . " WHERE bundle = :textname AND entity_id = :entity_id AND langcode = :langcode", [':textname' => $textname, ':entity_id' => $entity_id, ':langcode' => $langcode])->fetchField();
+    $contents = $node->{$field_name}->value;
+
+    $var = $contents;
+
+  }
+
+  return $var;
+
+}
+
+/**
+ *
+ */
+function get_contents_one_level($chapterStart, $chapterEnd, $chapter, $textname, $langcode, $table_name, $field_name) {
+
+  $diff = $chapterEnd - $chapterStart;
+
+  if ($diff > 0) {
+
+    $var = '';
+    for ($i = $chapterStart; $i <= $chapterEnd; $i++) {
+      $positional_index = $i;
+
+      $entity_id = db_query("SELECT nid FROM `node_field_data` WHERE type = :textname AND langcode = :langcode AND title = :positional_index", [':textname' => $textname, ':langcode' => $langcode, ':positional_index' => $positional_index])->fetchField();
+
+      $node = Node::load($entity_id);
+      // $contents = db_query("SELECT $field_value FROM " . $table_name . " WHERE bundle = :textname AND entity_id = :entity_id AND langcode = :langcode", [':textname' => $textname, ':entity_id' => $entity_id, ':langcode' => $langcode])->fetchField();
+      $contents = $node->{$field_name}->value;
+
+      $var = $var . $contents;
+
+    }
+
+  }
+
+  else {
+
+    $positional_index = $chapterStart;
+    $entity_id = db_query("SELECT nid FROM `node_field_data` WHERE type = :textname AND langcode = :langcode AND title = :positional_index", [':textname' => $textname, ':langcode' => $langcode, ':positional_index' => $positional_index])->fetchField();
+
+    $node = Node::load($entity_id);
+    $var = $node->{$field_name}->value;
+
+  }
+
+  return $var;
+
+}
+
+/**
+ *
+ */
+function get_contents_three_levels($slokaStart, $slokaEnd, $chapter, $sarga, $textname, $langcode, $field_name) {
+
+  $diff = $slokaEnd - $slokaStart;
+
+  if ($diff > 0) {
+    $var = '';
+
+    for ($i = $slokaStart; $i <= $slokaEnd; $i++) {
+      $positional_index = $chapter . '.' . $sarga . '.' . $i;
+
+      $entity_id = db_query("SELECT nid FROM `node_field_data` WHERE type = :textname AND langcode = :langcode AND title = :positional_index", [':textname' => $textname, ':langcode' => $langcode, ':positional_index' => $positional_index])->fetchField();
+
+      $node = Node::load($entity_id);
+      $contents = $node->{$field_name}->value;
+
+      $var = $var . $contents;
+
+    }
+
+  }
+  else {
+    $positional_index = $chapter . '.' . $sarga . '.' . $slokaStart;
+    $entity_id = db_query("SELECT nid FROM `node_field_data` WHERE type = :textname AND langcode = :langcode AND title = :positional_index", [':textname' => $textname, ':langcode' => $langcode, ':positional_index' => $positional_index])->fetchField();
+
+    $node = Node::load($entity_id);
+    $var = $node->{$field_name}->value;
+
+  }
+
+  return $var;
+}
