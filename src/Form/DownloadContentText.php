@@ -4,6 +4,8 @@ namespace Drupal\heritage_bulk_download\Form;
 
 // require_once __DIR__ . '/vendor/autoload.php';.
 use Mpdf\Mpdf;
+// require_once 'dompdf/autoload.inc.php';
+// use Dompdf\Dompdf;.
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Path\CurrentPathStack;
 use Drupal\node\Entity\Node;
@@ -112,7 +114,7 @@ class DownloadContentText extends FormBase {
 
       // Set the default value to first chapter/kanda.
       $chapter_selected_tid = $query[0]->tid;
-
+      $chapters[0] = "None";
       foreach ($query as $key => $value) {
         $chapters[$value->tid] = $value->name;
       }
@@ -132,7 +134,7 @@ class DownloadContentText extends FormBase {
           '#title' => $this->t('Select To ' . $level_labels[0]),
          // '#required' => TRUE,
           '#options' => $chapters,
-          '#default_value' => $chapter_selected_tid,
+          // '#default_value' => $chapter_selected_tid,
         ];
 
       }
@@ -171,8 +173,14 @@ class DownloadContentText extends FormBase {
         // Calculate the sublevels of each chapter.
         if (isset($chapter_selected_tid)) {
           $sub_level_count = calculate_sublevel($textname, $chapter_selected_tid);
-          for ($i = 1; $i <= $sub_level_count; $i++) {
-            $slokas[$i] = $level_labels[1] . " " . $i;
+          for ($i = 0; $i <= $sub_level_count; $i++) {
+            if ($i == 0) {
+              $slokas[$i] = "None";
+            }
+            else {
+              $slokas[$i] = $level_labels[1] . " " . $i;
+
+            }
           }
 
         }
@@ -182,27 +190,42 @@ class DownloadContentText extends FormBase {
           '#title' => $this->t('Select From ' . $level_labels[1]),
           '#required' => TRUE,
           '#options' => $slokas,
-          '#default_value' => 1,
+          '#default_value' => 0,
+
+          '#ajax' => [
+            'event' => 'change',
+            'wrapper' => 'sloka-range-formats',
+            'callback' => '::_ajax_slokaRange_callback',
+          ],
         ];
 
-        $form['text_info']['fieldset']['chapter_formats']['slokaEnd'] = [
-          '#type' => 'select',
-          '#title' => $this->t('To ' . $level_labels[1]),
-          // '#required' => TRUE,
-          '#default_value' => NULL,
+        if (!empty($form_state->getTriggeringElement())) {
+          $sloka_selected = $form_state->getUserInput()['slokaStart'];
+        }
 
-          '#options' => $slokas,
-
+        $form['text_info']['fieldset']['chapter_formats']['sloka_range_formats'] = [
+          '#type' => 'container',
+          '#prefix' => '<div id="sloka-range-formats">',
+          '#suffix' => '</div>',
         ];
+
+        if (isset($sloka_selected) && $sloka_selected > 0) {
+          // print_r($sloka_selected);exit;
+          $form['text_info']['fieldset']['chapter_formats']['sloka_range_formats']['slokaEnd'] = [
+            '#type' => 'select',
+            '#title' => $this->t('To ' . $level_labels[1]),
+            '#required' => TRUE,
+            '#default_value' => 0,
+           // Start from sloka 2.
+            '#options' => array_slice($slokas, $sloka_selected + 1),
+
+          ];
+
+        }
 
       }
 
       if ($levels == 3) {
-
-        // Query for sargas.
-        $query_sarga = db_query("SELECT * FROM `taxonomy_term_field_data` WHERE name LIKE 'Sarga%' AND vid = :textname AND tid IN (SELECT entity_id FROM `taxonomy_term__parent` WHERE parent_target_id = :parent_tid)", [':textname' => $textname, ':parent_tid' => $chapter_selected_tid])->fetchAll();
-
-        $sarga_selected_tid = $query_sarga[0]->tid;
 
         $form['text_info']['fieldset']['chapters'] = [
           '#type' => 'select',
@@ -228,6 +251,7 @@ class DownloadContentText extends FormBase {
         // Sargas and slokas.
         $sargas = [];
         $slokas = [];
+        $sargas[0] = "None";
 
         $form['text_info']['fieldset']['chapter_formats'] = [
           '#type' => 'container',
@@ -240,32 +264,26 @@ class DownloadContentText extends FormBase {
           // Query for sarga.
           $query = db_query("SELECT * FROM `taxonomy_term_field_data` WHERE name LIKE 'Sarga%' AND vid = :textname AND tid IN (SELECT entity_id FROM `taxonomy_term__parent` WHERE parent_target_id = :parent_tid)", [':textname' => $textname, ':parent_tid' => $chapter_selected_tid])->fetchAll();
 
-          $sarga_selected_tid = $query_sarga[0]->tid;
-
+          // $sarga_selected_tid = $query_sarga[0]->tid;
           foreach ($query as $key => $value) {
             $sargas[$value->tid] = $value->name;
           }
 
         }
 
+        // print_r($sargas);exit;
         $form['text_info']['fieldset']['chapter_formats']['sargas'] = [
           '#type' => 'select',
           '#title' => $this->t('Select ' . $level_labels[1]),
           '#required' => TRUE,
           '#options' => $sargas,
-          '#default_value' => $sarga_selected_tid,
+          '#default_value' => 0,
           '#ajax' => [
             'event' => 'change',
             'wrapper' => 'sarga-formats',
             'callback' => '::_ajax_sarga_callback',
           ],
 
-        ];
-
-        $form['text_info']['fieldset']['sarga_formats'] = [
-          '#type' => 'container',
-          '#prefix' => '<div id="sarga-formats">',
-          '#suffix' => '</div>',
         ];
 
         // Ajax triggers when a sarga is selected.
@@ -275,34 +293,58 @@ class DownloadContentText extends FormBase {
 
         }
 
-        if (isset($sarga_selected_tid)) {
+        $form['text_info']['fieldset']['sarga_formats'] = [
+          '#type' => 'container',
+          '#prefix' => '<div id="sarga-formats">',
+          '#suffix' => '</div>',
+        ];
+
+        if (isset($sarga_selected_tid) && $sarga_selected_tid > 0) {
+          // print_r($sarga_selected_tid);exit;
           $sub_level_count = calculate_sublevel($textname, $sarga_selected_tid);
           for ($i = 1; $i <= $sub_level_count; $i++) {
             $slokas[$i] = $level_labels[2] . " " . $i;
 
           }
+
+          $form['text_info']['fieldset']['sarga_formats']['slokaStart'] = [
+            '#type' => 'select',
+            '#title' => $this->t('Select ' . $level_labels[2]),
+            '#required' => TRUE,
+            '#options' => $slokas,
+
+            '#default_value' => 1,
+
+          ];
+
+          // If (!empty($form_state->getTriggeringElement())) {
+          //   // Gives the tid of the sarga.
+          //   $sloka_selected = $form_state->getUserInput()['slokaStart'];
+          // }
+          $form['text_info']['fieldset']['sarga_formats']['slokaEnd'] = [
+            '#type' => 'select',
+            '#title' => $this->t('Select ' . $level_labels[2]),
+            '#required' => TRUE,
+            '#options' => array_slice($slokas, 1),
+            '#default_value' => 0,
+
+          ];
         }
 
-        $form['text_info']['fieldset']['sarga_formats']['slokaStart'] = [
-          '#type' => 'select',
-          '#title' => $this->t('Select ' . $level_labels[2]),
-          '#required' => TRUE,
-          '#options' => $slokas,
-
-          '#default_value' => 1,
-
-        ];
-
-         $form['text_info']['fieldset']['sarga_formats']['slokaEnd'] = [
-          '#type' => 'select',
-          '#title' => $this->t('Select ' . $level_labels[2]),
-         // '#required' => TRUE,
-          '#options' => $slokas,
-
-          '#default_value' => 1,
-
-        ];
-
+        // $form['text_info']['fieldset']['sarga_formats']['slokaStart'] = [
+        //   '#type' => 'select',
+        //   '#title' => $this->t('Select ' . $level_labels[2]),
+        //   '#required' => TRUE,
+        //   '#options' => $slokas,
+        // '#default_value' => 1,
+        // ];
+        // $form['text_info']['fieldset']['sarga_formats']['slokaEnd'] = [
+        //   '#type' => 'select',
+        //   '#title' => $this->t('Select ' . $level_labels[2]),
+        //  // '#required' => TRUE,
+        //   '#options' => $slokas,
+        // '#default_value' => 1,
+        // ];
       }
 
       $sources = [];
@@ -352,14 +394,12 @@ class DownloadContentText extends FormBase {
 
       }
 
-      if (isset($format) && $format == 'text') {
-        $form['text_info']['fieldset']['source_formats']['selected_langcode'] = [
-          '#type' => 'language_select',
-          '#title' => $this->t('Language'),
-          '#languages' => LanguageInterface::STATE_CONFIGURABLE | LanguageInterface::STATE_SITE_DEFAULT,
+      $form['text_info']['fieldset']['selected_langcode'] = [
+        '#type' => 'language_select',
+        '#title' => $this->t('Language'),
+        '#languages' => LanguageInterface::STATE_CONFIGURABLE | LanguageInterface::STATE_SITE_DEFAULT,
 
-        ];
-      }
+      ];
 
     }
 
@@ -403,47 +443,58 @@ class DownloadContentText extends FormBase {
       $chapterStart_tid = $form_state->getValue('chapterStart');
 
       $chapterStart = get_chapter_number($textname, $chapterStart_tid);
-     //  print_r($chapterStart);exit;
+      // print_r($chapterStart);exit;
       $chapterEnd_tid = $form_state->getValue('chapterEnd');
       $chapterEnd = get_chapter_number($textname, $chapterEnd_tid);
 
-      $contents = get_contents_one_level($chapterStart, $chapterEnd, $chapter, $textname, $langcode, $table_name,$field_name);
+      $contents = get_contents_one_level($chapterStart, $chapterEnd, $chapter, $textname, $langcode, $table_name, $field_name);
 
     }
 
     $chapter_selected_tid = $form_state->getValue('chapters');
-    $chapter = get_chapter_number($textname, $chapter_selected_tid);
-
+    // $chapter = get_chapter_number($textname, $chapter_selected_tid);
     if ($levels == 2) {
       $slokaStart = $form_state->getValue('slokaStart');
       $slokaEnd = $form_state->getValue('slokaEnd');
 
-      $contents = get_contents_two_levels($slokaStart, $slokaEnd, $chapter, $textname, $langcode, $table_name,$field_name);
+      $contents = get_contents_two_levels($slokaStart, $slokaEnd, $chapter_selected_tid, $textname, $langcode, $table_name, $field_name, $field_value);
 
     }
 
     if ($levels == 3) {
 
-      // TODO for levels == 3.
       $slokaStart = $form_state->getValue('slokaStart');
       $slokaEnd = $form_state->getValue('slokaEnd');
       $sarga_tid = $form_state->getValue('sargas');
-      $sarga = get_chapter_number($textname,$sarga_tid);
-     // print_r($sarga);exit;
 
+      // $diff = abs($slokaEnd - $slokaStart);
+      // $sarga = get_chapter_number($textname,$sarga_tid);
+      // print_r($diff);exit;
+      // TODO: if there is a change in sarga, have the sloka select range.
+      $contents = get_contents_three_levels($slokaStart, $slokaEnd, $chapter_selected_tid, $sarga_tid, $textname, $langcode, $field_name);
 
-
-      $contents = get_contents_three_levels($slokaStart,$slokaEnd,$chapter,$sarga,$textname,$langcode,$field_name);
-      
     }
-  //  print_r($contents);exit;
+    // print_r($contents);exit;
+    $mpdf = new Mpdf(['tempDir' => 'sites/default/files/tmp', 'orientation' => 'P']);
 
- 
-    $mpdf = new Mpdf(['tempDir' => 'sites/default/files/tmp']);
-    $mpdf->WriteHTML($var);
+    $mpdf->autoScriptToLang = TRUE;
+    $mpdf->autoLangToFont = TRUE;
+
+    $mpdf->WriteHTML($contents);
+
     $filename = $source_name . '.pdf';
+    // $mpdf->Output();
     $mpdf->Output($filename, 'D');
     // exit;.
+    // $html = $contents ; // you may add your content here
+    // $html = mb_convert_encoding($contents, 'HTML-ENTITIES', 'UTF-8');
+    // $dompdf = new Dompdf();
+    // //$dompdf->set_option('defaultFont', 'Courier');
+    // $dompdf->loadHtml($html);
+    // $dompdf->render();
+    // // This does not save the pdf field and instead it opens a dialog box asking whether you have to save the pdf or not
+    // $dompdf->stream();
+    $form_state->disableRedirect();
   }
 
   /**
@@ -458,6 +509,20 @@ class DownloadContentText extends FormBase {
    */
   public function source_select(array $form, FormStateInterface $form_state) {
     return $form['text_info']['fieldset']['source_formats'];
+  }
+
+  /**
+   *
+   */
+  public function _ajax_slokaRange_callback(array $form, FormStateInterface $form_state) {
+    return $form['text_info']['fieldset']['chapter_formats']['sloka_range_formats'];
+  }
+
+  /**
+   *
+   */
+  public function _ajax_sarga_callback(array $form, FormStateInterface $form_state) {
+    return $form['text_info']['fieldset']['sarga_formats'];
   }
 
 }
