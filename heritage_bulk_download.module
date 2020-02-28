@@ -7,6 +7,17 @@
  */
 
 use Drupal\node\Entity\Node;
+use Drupal\Core\Form\FormStateInterface;
+
+/**
+ * $route_name = \Drupal::routeMatch()->getRouteName();
+ * print_r($route_name);.
+ */
+function heritage_bulk_download_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+
+  $route_name = \Drupal::routeMatch()->getRouteName();
+  // print_r($route_name);
+}
 
 /**
  *

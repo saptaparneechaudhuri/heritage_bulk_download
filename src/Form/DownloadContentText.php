@@ -104,7 +104,7 @@ class DownloadContentText extends FormBase {
 
       $form['text_info']['fieldset'] = [
         '#type' => 'fieldset',
-        '#title' => $this->t('Select the Target Source'),
+        '#title' => $this->t('Select the Source to Download'),
       // '#description' => $this->t('Choose the source you want to download'),
       ];
 
@@ -123,7 +123,7 @@ class DownloadContentText extends FormBase {
 
         $form['text_info']['fieldset']['chapterStart'] = [
           '#type' => 'select',
-          '#title' => $this->t('Select From ' . $level_labels[0]),
+          '#title' => $this->t('Select ' . $level_labels[0] . '(From)'),
           '#required' => TRUE,
           '#options' => $chapters,
           '#default_value' => $chapter_selected_tid,
@@ -131,7 +131,7 @@ class DownloadContentText extends FormBase {
 
         $form['text_info']['fieldset']['chapterEnd'] = [
           '#type' => 'select',
-          '#title' => $this->t('Select To ' . $level_labels[0]),
+          '#title' => $this->t('Select ' . $level_labels[0] . '(To)'),
          // '#required' => TRUE,
           '#options' => $chapters,
           // '#default_value' => $chapter_selected_tid,
@@ -187,7 +187,7 @@ class DownloadContentText extends FormBase {
 
         $form['text_info']['fieldset']['chapter_formats']['slokaStart'] = [
           '#type' => 'select',
-          '#title' => $this->t('Select From ' . $level_labels[1]),
+          '#title' => $this->t('Select ' . $level_labels[1] . '(From)'),
           '#required' => TRUE,
           '#options' => $slokas,
           '#default_value' => 0,
@@ -213,7 +213,7 @@ class DownloadContentText extends FormBase {
           // print_r($sloka_selected);exit;
           $form['text_info']['fieldset']['chapter_formats']['sloka_range_formats']['slokaEnd'] = [
             '#type' => 'select',
-            '#title' => $this->t('To ' . $level_labels[1]),
+            '#title' => $this->t('Select ' . $level_labels[1] . '(To)'),
             '#required' => TRUE,
             '#default_value' => 0,
            // Start from sloka 2.
@@ -309,7 +309,7 @@ class DownloadContentText extends FormBase {
 
           $form['text_info']['fieldset']['sarga_formats']['slokaStart'] = [
             '#type' => 'select',
-            '#title' => $this->t('Select ' . $level_labels[2]),
+            '#title' => $this->t('Select ' . $level_labels[2] . '(From)'),
             '#required' => TRUE,
             '#options' => $slokas,
 
@@ -323,7 +323,7 @@ class DownloadContentText extends FormBase {
           // }
           $form['text_info']['fieldset']['sarga_formats']['slokaEnd'] = [
             '#type' => 'select',
-            '#title' => $this->t('Select ' . $level_labels[2]),
+            '#title' => $this->t('Select ' . $level_labels[2] . '(To)'),
             '#required' => TRUE,
             '#options' => array_slice($slokas, 1),
             '#default_value' => 0,
@@ -349,15 +349,22 @@ class DownloadContentText extends FormBase {
 
       $sources = [];
 
-      $source_values = db_query("SELECT id, title FROM `heritage_source_info` WHERE text_id = :text_id", ['text_id' => $textid])->fetchAll();
+      $source_values = db_query("SELECT id, title,format FROM `heritage_source_info` WHERE text_id = :text_id", ['text_id' => $textid])->fetchAll();
 
       foreach ($source_values as $key => $value) {
-        $sources[$value->id] = $value->title;
+        // Check the format of the sources here.
+        if ($value->format == "text") {
+          // print_r($value->title);exit;.
+          $sources[$value->id] = $value->title;
+
+        }
+
       }
 
+      // print("<pre>");print_r($sources);exit;
       $form['text_info']['fieldset']['sources'] = [
         '#type' => 'select',
-        '#title' => $this->t('Select the source you want to download'),
+        '#title' => $this->t('Select Source'),
         '#required' => TRUE,
         '#options' => $sources,
         '#default_value' => isset($form['text_info']['fieldset']['sources']['#default_value']) ? $form['text_info']['fieldset']['sources']['#default_value'] : NULL,
@@ -476,10 +483,9 @@ class DownloadContentText extends FormBase {
     }
     // print_r($contents);exit;
     $mpdf = new Mpdf(['tempDir' => 'sites/default/files/tmp', 'orientation' => 'P']);
-
+    // $mpdf->SetTitle('My Title');
     $mpdf->autoScriptToLang = TRUE;
     $mpdf->autoLangToFont = TRUE;
-
     $mpdf->WriteHTML($contents);
 
     $filename = $source_name . '.pdf';
